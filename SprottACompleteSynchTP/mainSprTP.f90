@@ -1,0 +1,156 @@
+!  Programa principa para el algoritmo de oscilatorio
+!  trigonometrico de Gautshi explicito segundo orden algebraico
+
+program ChaosSprottHidden
+
+implicit none
+
+external SystemS  ! Sistema caotico dinamico
+
+
+! Tipos de las variable
+! La primera llamada al metodo integrador bandera = 1
+integer(kind = 4) :: bandera = 1
+
+! Contador de visualizacion de las solucion de la edo
+integer(kind = 4) :: contadorV = 0
+
+! Contador de llamada a la subroutine LE4
+integer(kind = 4) :: contadorEVal = 0
+common/contadorEval/contadorEval
+
+! Numero de edos
+integer(kind = 4), parameter :: nuecdf = 6
+integer(kind = 4), parameter :: unidadEsc = 10
+integer(kind = 4), parameter :: unidadLec = 15
+
+integer(kind = 4) :: i, j, k, puntos, n, m, noIteraciones
+
+double precision :: beta1, beta0, h, t, w, nu, nu2, nu4, t0, tf
+double precision :: y(nuecdf), dy(nuecdf), y1(nuecdf), dy1(nuecdf)
+double precision :: sy(nuecdf), sdy(nuecdf), aux
+double precision :: u(3)
+double precision :: vp(37), fm1(37), fm2(37)
+!double precision, parameter :: tmp = 1.234567d0
+integer(kind = 4) :: mv
+
+! Error
+double precision :: er(3)
+
+
+
+! Inicializmos los arreglos a cero
+do i = 1, nuecdf
+   y(i) = 0.0d0
+   dy(i) = 0.0d0
+   y1(i) = 0.0d0
+   dy1(i) = 0.0d0
+   sy(i) = 0.0d0
+   sdy(i) = 0.0d0
+enddo
+
+er(1) = 0.0d0
+er(2) = 0.0d0
+er(3) = 0.0d0
+
+u(1) = 0.0d0
+u(2) = 0.0d0
+u(3) = 0.0d0
+
+! Condiciones iniciales, t = 0
+!Master
+y(1) = 0.2d0
+y(2) = 5.0d0
+y(3) = 0.0d0
+
+! Condiciones iniciales, t = 0
+! Slave
+y(4) = 1.1d0
+y(5) = 6.1d0
+y(6) = -0.1d0
+
+! Tiempo inicial y final
+t0 = 0.0d0
+tf = 250.0d0 !para articulo enviado
+!tf = 300.0d0 !para tesis
+
+! Frecuencia de la solucion de la edo
+w = 1.0d0
+
+! Paso de integracion
+h = 1.0d0 / 128.0d0 !para articulo enviado
+!h = 1.0d0 /200.0d0 ! para tesis
+
+! Numero de puntos de la solucion de la edo a visualizar
+puntos = 32000 !para articulo enviado
+!puntos = 3000 !para tesis
+
+! Numero de puntos n de la malla en el intervalo
+! [t0, tf] inducidos por el paso h
+! n = (tf - t0) / h
+n = anint((tf -t0) / h)
+noIteraciones = n
+
+! Calculamos el intervalo de tiempo para
+! visualizar los puntos de la solucion
+if (mod(n, puntos) == 0) then
+   n = n / puntos
+else
+   aux =  n / puntos
+   n = anint(aux)
+endif
+! Errores en t=0
+er(1)=y(4)-y(1)
+er(2)=y(5)-y(2)
+er(3)=y(6)-y(3)
+
+
+! * Se abre archivo de impresion de resultados.
+open (unit = unidadEsc, file = 'chaosSprottLMI_SNNN.txt', status = 'UNKNOWN')
+ write(unidadEsc, 5000) t0, (y(j), j = 1, nuecdf), (er(k), k = 1, 3), (u(k), k = 1, 3), 0, contadorEVal ! condiciones iniciales
+
+! Se abre el archivo que contiene los vectores de las funciones de mebresia
+open (unit = unidadLec, file = 'FM_SNNN.txt', status = 'UNKNOWN')
+! se leen los puntos de las funciones de membresia
+
+mv = 37
+do m = 1, mv
+    read(unidadLec, 5100) vp(m), fm1(m), fm2(m)
+enddo
+
+write(*, 5100) vp(1), fm1(1), fm2(1)
+write(*, 5100) vp(20), fm1(20), fm2(20)
+write(*, 5100) vp(37), fm1(37), fm2(37)
+
+ ! Ciclo simulacion
+ !print *,"Integramos"
+ !print *, tmp
+do i = 1, noIteraciones
+   call GautshiOrden2(SystemS, nuecdf, bandera, beta0, beta1, y1, dy1, sy, sdy, t, w, y, h, dy, u, mv, vp, fm1,fm2)
+
+   ! se calcula el error
+   er(1)=y(4)-y(1)
+   er(2)=y(5)-y(2)
+   er(3)=y(6)-y(3)
+
+   ! Contadodr de visualizaciones
+   contadorV = contadorV + 1
+   if (contadorV == n) then
+      !write(*, 5000) t, (y(j), j = 1, nuecdf), (er(k), k = 1, 3), (u(k), k = 1, 3), i, contadorEVal
+      write(unidadEsc, 5000) t, (y(j), j = 1, nuecdf), (er(k), k = 1, 3), (u(k), k = 1, 3), i, contadorEVal
+	  ! Inicializamos los contadores
+	  contadorV = 0
+	  contadorEVal = 0
+   endif
+enddo
+
+close(unit = unidadEsc)  ! cerramos archivo de escritura
+close(unit = unidadLec)  ! cerramos archivo de Lectura
+call exit
+
+! Formatos
+!5000 format(4X, F10.3, F15.5, F15.5, F15.5, F15.5, F15.5, F15.5, F15.5, F15.5, F15.5, I10, I10)
+5000 format( F10.3, 12F15.5, I10, I10)
+5100 format(1x,3(d17.8))
+
+end program ChaosSprottHidden
